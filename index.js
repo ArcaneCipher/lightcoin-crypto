@@ -1,32 +1,3 @@
-let balance = 500.00;
-
-class Withdrawal {
-
-  constructor(amount) {
-    this.amount = amount;
-  }
-
-  commit() {
-    balance -= this.amount;
-  }
-
-}
-
-
-
-
-// DRIVER CODE BELOW
-// We use the code below to "drive" the application logic above and make sure it's working as expected
-
-t1 = new Withdrawal(50.25);
-t1.commit();
-console.log('Transaction 1:', t1);
-
-t2 = new Withdrawal(9.99);
-t2.commit();
-console.log('Transaction 2:', t2);
-
-console.log('Balance:', balance);
 class Account {
   constructor(username) {
     this.username = username;
@@ -35,10 +6,12 @@ class Account {
 
   get balance() {
     // Calculate the balance using the transaction objects
-    return this.transactions.reduce(
+    const total = this.transactions.reduce(
       (total, transaction) => total + transaction.value,
       0
     );
+    // Round the balance to 2 decimal places and return
+    return Math.round(total * 100) / 100;
   }
 
   addTransaction(transaction) {
@@ -53,22 +26,37 @@ class Transaction {
       throw new Error("Transaction must be associated with a valid account.");
     if (amount <= 0)
       throw new Error("Transaction amount must be greater than zero.");
-    this.amount = amount;
+    this.amount = Math.round(amount * 100); // Store amounts as integers representing cents
     this.account = account;
+    this.hasCommitted = false;
   }
 
   commit() {
-    if (!this.isAllowed()) return false; // If transaction is not allowed immediately exit the function
-    this.time = new Date(); // Keep track of the time of the transaction
+    // Prevent committing multiple times
+    if (this.hasCommitted) {
+      return {
+        success: false,
+        message: "Transaction already committed.",
+      };
+    }
+    // If transaction is not allowed immediately exit the function
+    if (!this.isAllowed()) {
+      return {
+        success: false,
+        message: "Insufficient funds for this withdrawal.",
+      };
+    }
+    this.time = new Date();            // Keep track of the time of the transaction
     this.account.addTransaction(this); // Add the transaction to the account
-    return true;
+    this.hasCommitted = true;          // Mark the transaction as committed
+    return { success: true, message: "Transaction successful." };
   }
 }
 
 // Pass in the account that the deposit this for
 class Deposit extends Transaction {
   get value() {
-    return this.amount; // Positive amount for deposits
+    return this.amount / 100; // Positive amount for deposits and return in dollars when needed
   }
   isAllowed() {
     // Deposits are always allowed
@@ -79,40 +67,39 @@ class Deposit extends Transaction {
 // Pass in the account that the withdrawal this for
 class Withdrawal extends Transaction {
   get value() {
-    return -this.amount; // Negative amount for withdrawals
+    return -this.amount / 100; // Negative amount for withdrawals and return in dollars when needed
   }
   isAllowed() {
     // Check if the account balance is sufficient for the withdrawal
-    if (this.account.balance < this.amount) {
-      throw new Error("Insufficient funds for this withdrawal.");
-    }
-    return true;
+    return this.account.balance >= this.amount / 100; // Return a boolean instead of throwing an error
   }
 }
 
 // DRIVER CODE BELOW
-// We use the code below to "drive" the application logic above and make sure it's working as expected
-
 const myAccount = new Account("billybob");
 
 console.log("Starting Balance:", myAccount.balance);
 
 // Test deposit
-const t1 = new Deposit(120.0, myAccount);
-console.log("Deposit Success:", t1.commit());
+const t1 = new Deposit(120.90, myAccount);
+const t1Result = t1.commit();
+console.log("Deposit Success:", t1Result.message);
 console.log("Balance after Deposit:", myAccount.balance);
 
 // Test withdrawal within balance
-const t2 = new Withdrawal(50.0, myAccount);
-console.log("Withdrawal Success:", t2.commit());
+const t2 = new Withdrawal(50.41, myAccount);
+const t2Result = t2.commit();
+console.log("Withdrawal Success:", t2Result.message);
 console.log("Balance after Withdrawal:", myAccount.balance);
 
 // Test withdrawal exceeding balance
-const t3 = new Withdrawal(100.0, myAccount);
-console.log("Withdrawal Success:", t3.commit()); // Should fail
+const t3 = new Withdrawal(100.37, myAccount);
+const t3Result = t3.commit(); // Should fail
+console.log("Withdrawal Success:", t3Result.message);
 console.log("Balance after Failed Withdrawal:", myAccount.balance);
 
 // Test another withdrawal within balance
-const t4 = new Withdrawal(30.0, myAccount);
-console.log("Withdrawal Success:", t4.commit());
+const t4 = new Withdrawal(30.52, myAccount);
+const t4Result = t4.commit();
+console.log("Withdrawal Success:", t4Result.message);
 console.log("Balance after Withdrawal:", myAccount.balance);
